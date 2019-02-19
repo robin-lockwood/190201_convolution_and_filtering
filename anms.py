@@ -111,35 +111,45 @@ def Harris(img, radius, sd):
     return np.multiply(Iuu, Ivv) - np.multiply(Iuv, Iuv)
 
 
-def get_high_intensity(img, val):
+def get_high_intensity(img):
     p = []
+    avg = np.average(img)
     for i in range(img.shape[0]):
         for j in range(img.shape[1]):
-            if img[i, j] > val:
+            if img[i, j] > avg:
                 p.append(((i, j), img[i, j]))
     return p
 
 
+# function to return 2-D distance
 def distance(p1, p2):
     return sqrt(pow((p1[0] - p2[0]), 2) + pow((p1[1] - p2[1]), 2))
 
 
 # adaptive non-maximal suppression
-# points describes a matrix of tuples for storing (x,y) and intensity and n is the number of top radii to pick from
-def anms(points, n=500, t=0.9):
+# points describes a matrix of tuples for storing (x,y) and intensity 
+# n is the number of top radii to pick from
+# diameter filters radii that are too close together
+# t is a scaling factor for what intensity is considered to be. i.e. t=1 no scale; t=0.9 intensity a little less; t=1.1 intensity a little more.
+def anms(points, n=500, diameter=5, t=0.9):
     s = []
+    # step by d
     for i in range(len(points)):
         radius = np.Infinity
         p = points[i]
+        # for every point find the closest higher intensity
         for j in range(len(points)):
             pp = points[j]
-            # for every point skip if same pixel otherwise check if p has more or less intensity
-            if (p[0][0] != pp[0][0] and p[0][1] != pp[0][1]) and (p[1] < t * pp[1]):
+            if (i != j) and (p[1] < t * pp[1]):
                 d = distance(p[0], pp[0])
                 if d < radius:
                     radius = d
-        s.append(((p[0][0], p[0][1]), radius))
+		# only record if distance is far enough away
+        if radius > diameter:
+            s.append(((p[0][0], p[0][1]), radius))
+	# sort by radius
     s.sort(key=lambda l: l[1], reverse=True)
+
     # return a matrix of the top n points
     return s[0:n]
 
@@ -152,8 +162,8 @@ fig = plt.figure(figsize=(18, 16), dpi=80, facecolor='w', edgecolor='k')
 ps = plt.imshow(cimg, cmap='gray')
 plt.show()
 
-hih_points = get_high_intensity(cimg, 1.0)
-descriptors = anms(hih_points, 100, 0.95)
+hih_points = get_high_intensity(cimg)
+descriptors = anms(hih_points, n=100, diameter=10, t=1)
 filtered_image = np.zeros(cimg.shape)
 
 for x in range(cimg.shape[0]):
@@ -161,7 +171,7 @@ for x in range(cimg.shape[0]):
         for z in descriptors:
             if z[0][0] == x and z[0][1] == y:
                 filtered_image[x, y] = 1
-                
+
 fig = plt.figure(figsize=(18, 16), dpi=80, facecolor='w', edgecolor='k')
 ps = plt.imshow(filtered_image, cmap='gray')
 plt.show()
